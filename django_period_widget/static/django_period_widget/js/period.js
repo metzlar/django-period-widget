@@ -3,11 +3,13 @@
     if(window.DjangoPeriod == undefined)
 	window.DjangoPeriod = DjangoPeriod;
 
+    $.fn.reverse = [].reverse
+
     var inited = false;
     var nextId = 0;
     var options = {
 	debug: false,
-	query: 'input.dj-period',
+	query: 'input.dj-period-end',
 	dataAttribute: 'period-start',
 	inputTemplate: 
 	'<input type="range" />',
@@ -27,11 +29,27 @@
 	    'Initing Period inputs for $("'+options.query+'")');
 
 	$(function(){
-	    $(options.query).each(function(){
-		DjangoPeriod.debug('Found', this);
-		DjangoPeriod.buildInput(this);
-	    });
+	    var hiddenInputs = DjangoPeriod.filterParents(
+		$(options.query));
+	    DjangoPeriod.buildInput(hiddenInputs);
 	});
+    };
+
+    DjangoPeriod.filterParents = function(query){
+	/*  Remove all elements that share a parent with
+	  * another element in `query` This is required
+	  * to treat time & date fields as one single field.
+	  */
+
+	var result = $();
+
+	query.reverse().each(function(){
+	    var me = $(this);
+	    if($.inArray(me.parent()[0], result.parent())){
+		result = result.add(me);
+	    }
+	});
+	return result;
     };
 
     DjangoPeriod.getIStart = function(obj){
@@ -41,7 +59,7 @@
 
     DjangoPeriod.getIEnd = function(obj){
 	var self = $(obj);
-	return self.prev('.'+options.className);
+	return $(options.query, self.parent()).not(self);
     };
 
     DjangoPeriod.findInFirstParent = function(qs, ctx){
@@ -70,8 +88,13 @@
 	var endDate = new Date(startDate.getTime() + (myVal*60000));
 	var endDt = endDate.getFullYear()+'-'+(1+endDate.getMonth())+'-'+endDate.getDate();
 	var endTm = endDate.getHours()+':'+endDate.getMinutes();
-	end.val(endDt+' '+endTm);
-	DjangoPeriod.debug('end.val',end.val());
+	if(end.length>1){
+	    $(end[0]).val(endDt);
+	    $(end[1]).val(endTm);
+	} else {
+	    end.val(endDt+' '+endTm);
+	}
+	DjangoPeriod.debug('end~val',end.val());
     };
 
     DjangoPeriod.date2val = function(obj){
@@ -97,9 +120,9 @@
 	    self.trigger('change');
 	    return;
 	}
-
-	var endDate = new Date(endValue);
 	DjangoPeriod.debug('endValue', endValue);
+	var endDate = new Date(endValue);
+	DjangoPeriod.debug('endDate ='+endDate+'=');
 
 	var milis = endDate - startDate;
 	self.val(Math.round((milis/1000)/60));
@@ -119,6 +142,9 @@
     DjangoPeriod.buildInput = function(hiddenInput){
 
 	var self = $(hiddenInput);
+
+	if(!options.debug)
+	    self.hide();
 		
 	DjangoPeriod.debug('Building Input', self);
 

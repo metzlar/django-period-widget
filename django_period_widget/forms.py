@@ -1,14 +1,14 @@
-from django import forms
+from django.forms import widgets
 
 
-class PeriodWidget(forms.HiddenInput):
+class PeriodWidget(widgets.SplitHiddenDateTimeWidget):
     def __init__(self, *args, **kwargs):
         attrs = kwargs.pop('attrs', {})
 
         if 'class' in attrs:
-            attrs['class'] = attrs['class'] + ' dj-period'
+            attrs['class'] = attrs['class'] + ' dj-period-end'
         else:
-            attrs['class'] = 'dj-period'
+            attrs['class'] = 'dj-period-end'
             
         super(PeriodWidget, self).__init__(
             attrs=attrs, *args, **kwargs)

@@ -11,12 +11,11 @@
 	debug: false,
 	query: 'input.dj-period-end',
 	dataAttribute: 'period-start',
-	inputTemplate: 
-	'<input type="range" />',
+	inputTemplate: '<select />', //'<input type="range" />',
 	className: 'dj-period',
 	rangeStep: 5,
 	rangeUnit: 'minutes',
-	rangeDefault: 15 
+	rangeDefault: 15
     };
 
     DjangoPeriod.init = function(opts){
@@ -63,6 +62,11 @@
     };
 
     DjangoPeriod.findInFirstParent = function(qs, ctx){
+	/* Search in the parent of ctx for qs
+	 * If qs is not found, search in the parent of the
+	 * parent. Continue searching in all subtrees of parents
+	 * until no parent is left or qs is found.
+	 */
 	var parent = ctx.parent();
 	if(!parent) return undefined;
 	var test = $(qs, parent);
@@ -86,7 +90,8 @@
 	var label = DjangoPeriod.getILabel(self);
 	label.text(self.attr('title').replace('_#_', myVal));
 	var endDate = new Date(startDate.getTime() + (myVal*60000));
-	var endDt = endDate.getFullYear()+'-'+(1+endDate.getMonth())+'-'+endDate.getDate();
+	var endDt = endDate.getFullYear()+'-'+(
+	    1+endDate.getMonth())+'-'+endDate.getDate();
 	var endTm = endDate.getHours()+':'+endDate.getMinutes();
 	if(end.length>1){
 	    $(end[0]).val(endDt);
@@ -125,19 +130,20 @@
 	DjangoPeriod.debug('endDate ='+endDate+'=');
 
 	var milis = endDate - startDate;
-	self.val(Math.round((milis/1000)/60));
+	var self_val = 1+Math.round((milis/1000)/60);
+
+	DjangoPeriod.debug('self_val', self_val);
+	self.val(self_val);
     };
 
     DjangoPeriod.buildMinutesInput = function(obj){
-	var self = $(obj);
 	var label = DjangoPeriod.getILabel(obj);
-	obj.attr({
-	    min: 0,
-	    max: 60,
-	    step: options.rangeStep,
-	    title: label.text() + '(_#_ minutes)'
-	});
-    };
+	for(var i=0; i<=60; i+=options.rangeStep){
+	    obj.append($('<option value="'+(
+		i)+'">'+(i)+' minutes</option>'));
+	}
+	obj.attr('title', label.text() + '(_#_ minutes)')
+   };
 
     DjangoPeriod.buildInput = function(hiddenInput){
 

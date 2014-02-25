@@ -15,7 +15,8 @@
 	className: 'dj-period',
 	rangeStep: 5,
 	rangeUnit: 'minutes',
-	rangeDefault: 15
+	rangeDefault: 15,
+	timezone: '-0800'
     };
 
     DjangoPeriod.init = function(opts){
@@ -79,64 +80,128 @@
 	return DjangoPeriod.findInFirstParent('label', self);
     };
 
+    DjangoPeriod.getDateValue = function(obj){
+	/* Utility function to create a Date instance
+	 * from the list of input fields. Returns
+	 * undefined if the Date cannot be created.
+	 */
+
+	var dt = $(obj[0]).val();
+	var tm = $(obj[1]).val();
+
+	if(tm.split(':').length==2){
+	    tm += ':00';
+	}
+
+	var result = (dt + 'T' + tm + options.timezone);
+
+	if(result==='T'){
+	    return undefined;
+	}
+
+	result = new Date(Date.parse(result));
+
+	if((''+result).indexOf('Invalid')!==-1){
+	    return undefined;
+	}
+
+	return result;
+    };
+
     DjangoPeriod.val2date = function(obj){
+	/* Construct the date object 
+	 * from self.val and update end_date fields.
+	 */
+	
 	var self = $(obj);
-	var start = DjangoPeriod.getIStart(self);
-	var startValue = '';
-	start.each(function(){startValue+=$(this).val()+' '});
+	var startDate = DjangoPeriod.getDateValue(
+	    DjangoPeriod.getIStart(self));
+	if(startDate===undefined){
+	    DjangoPeriod.debug('No start date');
+	    return;
+	}
+
+	var _ = function(v){
+	    if(v.length==1) v = '0' + v;
+	    return v;
+	};
+
+
 	var end = DjangoPeriod.getIEnd(self);
-	var startDate = new Date(startValue);
 	var myVal = self.val();
 	var label = DjangoPeriod.getILabel(self);
 	label.text(self.attr('title').replace('_#_', myVal));
-	var endDate = new Date(startDate.getTime() + (myVal*60000));
-	var endDt = endDate.getFullYear()+'-'+(
-	    1+endDate.getMonth())+'-'+endDate.getDate();
-	var endTm = endDate.getHours()+':'+endDate.getMinutes();
+
+	var endMilis = startDate.getTime() + (
+	    parseInt(myVal)*60000);
+
+	var endDate = new Date(endMilis);
+
+	var month = _('' + ( 1 + endDate.getMonth()));
+	var day = _('' + endDate.getDate());
+	var year = '' + endDate.getFullYear();
+
+	var endDt = year + '-' + month + '-' + day;
+
+	var hours = _(''+endDate.getHours());
+	var minutes = _(''+endDate.getMinutes());
+	var milliseconds = _(''+endDate.getMilliseconds());
+
+	var endTm = hours + ':' + minutes + ':' + milliseconds;
+
 	if(end.length>1){
 	    $(end[0]).val(endDt);
 	    $(end[1]).val(endTm);
 	} else {
 	    end.val(endDt+' '+endTm);
 	}
-	DjangoPeriod.debug('end~val',end.val());
+
+	DjangoPeriod.debug('startDate ='+startDate+'=');
+	DjangoPeriod.debug('endDate ='+endDate+'=');
     };
 
     DjangoPeriod.date2val = function(obj){
+	/* Using start_date and end_date fields,
+	 * update self.value accordingly.
+	 */
 	var self = $(obj);
-	var start = DjangoPeriod.getIStart(self);
-	var startValue = '';
-	start.each(function(){startValue+=$(this).val()+' '});
-	DjangoPeriod.debug('startValue ='+startValue+'=');	
-	if(/^\s+$/.test(startValue)){
-	    DjangoPeriod.debug('No start date yet');
+
+	var startDate = DjangoPeriod.getDateValue(
+	    DjangoPeriod.getIStart(self));
+
+	if(startDate===undefined){
 	    self.val(options.rangeDefault);
 	    self.trigger('change');
 	    return;
 	}
-	var startDate = new Date(startValue);
 
-	var end = DjangoPeriod.getIEnd(self);
-	var endValue = '';
-	end.each(function(){endValue+=$(this).val()+' '});
-	if(/^\s+$/.test(endValue)){
-	    DjangoPeriod.debug('No end date yet');
+	var endDate = DjangoPeriod.getDateValue(
+	    DjangoPeriod.getIEnd(self));
+
+	DjangoPeriod.debug('startDate >'+startDate+'=');
+	DjangoPeriod.debug('endDate >'+endDate+'=');
+	
+	if(endDate===undefined){
 	    self.val(options.rangeDefault);
 	    self.trigger('change');
 	    return;
 	}
-	DjangoPeriod.debug('endValue', endValue);
-	var endDate = new Date(endValue);
-	DjangoPeriod.debug('endDate ='+endDate+'=');
 
-	var milis = endDate - startDate;
-	var self_val = 1+Math.round((milis/1000)/60);
+	var milis = Math.abs(endDate - startDate);
+	var self_val = (milis/1000)/60;
+	//make sure self_val is a product of step
+	self_val = Math.round(self_val / options.rangeStep);
+	self_val = self_val * options.rangeStep;
 
 	DjangoPeriod.debug('self_val', self_val);
+	
 	self.val(self_val);
     };
 
     DjangoPeriod.buildMinutesInput = function(obj){
+	/* Add <option> tags to the <select> per
+	 * minute options.rangeStep.
+	 */
 	var label = DjangoPeriod.getILabel(obj);
 	for(var i=0; i<=60; i+=options.rangeStep){
 	    obj.append($('<option value="'+(
@@ -146,6 +211,8 @@
    };
 
     DjangoPeriod.buildInput = function(hiddenInput){
+	/* Entry point function
+         */
 
 	var self = $(hiddenInput);
 
@@ -169,18 +236,34 @@
 	i.change(handler);
 	i.mousedown(handler);
 
-	var start = DjangoPeriod.getIStart(i);
-	start.change(handler);
+	setTimeout(function(){
+	    var start = DjangoPeriod.getIStart(i);
+	    start.change(handler);
 
-	DjangoPeriod.date2val(i);
-	DjangoPeriod.val2date(i);
+	    DjangoPeriod.date2val(i);
+	    DjangoPeriod.val2date(i);
+	}, 1000);
     };
 
     DjangoPeriod.debug = function(){
+	/* Show a debug message.
+	 */
 	if(options.debug){
-	    console.log(
+	    var message = (
 		'[DjangoPeriod] DEBUG ' + Array.prototype.join.call(
 		    arguments, ', '));
+
+	    if(console===undefined||console.log===undefined){
+		var log = $('.dj-period-log');
+		if(log.length==0){
+		    log = $(
+			'<ul class="dj-period-log"></ul>'
+		    ).appendTo('body');
+		}
+		log.prepend('<li>'+message+'</li>');
+	    } else {
+		console.log(message);
+	    }
 	}
     };
 

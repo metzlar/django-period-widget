@@ -269,7 +269,7 @@
 
 })(
     window.DjangoPeriod || {},
-    window.jQuery
+    window.jQuery || django.jQuery
 );
 
 window.DjangoPeriod.init({debug:true});
